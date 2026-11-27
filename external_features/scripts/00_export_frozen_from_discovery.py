@@ -22,10 +22,18 @@ from lib.inflam_feats import INFLAM_FEATS, features_one  # noqa: E402
 # --- discovery roots (edit if needed) ---
 ROOT = Path(os.environ.get("PSMP_DATA_ROOT", "./discovery_data"))
 CSV = ROOT / "009_csv"
-CLIN = ROOT / "011_data" / "clinical"
-ALG = ROOT / "011_data" / "raw" / "alg_results_86样本"
+CLIN = Path(os.environ.get("PSMP_DISCOVERY_CLIN", ROOT / "011_data" / "clinical" / "discovery_clinical.csv"))
+ALG = ROOT / "011_data" / "raw" / "alg_results"
 OUT = PKG / "frozen"
 OUT.mkdir(parents=True, exist_ok=True)
+
+
+def load_clin():
+    """Discovery-cohort clinical table: one row per biopsy, needs eGFR_CKDEPI."""
+    c = pd.read_csv(CLIN)
+    if "sample" not in c.columns and "Slide" in c.columns:
+        c = c.rename(columns={"Slide": "sample"})
+    return c[["sample", "eGFR_CKDEPI"]]
 
 META_TUB = {
     "sample",
@@ -144,11 +152,8 @@ def export_inflam():
         )
     feat = pd.concat(frames, ignore_index=True)
     df = tub[["tubule_id", "sample"]].merge(feat, on=["tubule_id", "sample"], how="inner")
-    clin = pd.concat(
-        [pd.read_csv(CLIN / "V4_patient_train_56.csv"), pd.read_csv(CLIN / "V4_patient_valid_30.csv")],
-        ignore_index=True,
-    ).rename(columns={"Slide": "sample"})
-    eg = df.merge(clin[["sample", "eGFR_CKDEPI"]], on="sample", how="left")["eGFR_CKDEPI"].astype(float).values
+    clin = load_clin()
+    eg = df.merge(clin, on="sample", how="left")["eGFR_CKDEPI"].astype(float).values
     X = df[INFLAM_FEATS].replace([np.inf, -np.inf], np.nan).copy()
     X["nearest_um"] = -X["nearest_um"]
     bundle, proj = fit_axis(X.to_numpy(float), eg, n_comp=8)
@@ -169,7 +174,7 @@ def export_tubule():
     feat_cols = [
         c
         for c in feat_cols
-        if na[c] < 0.05 and not c.startswith("fourier_") and not c.endswith(tuple(f"_{i}" for i in range(2, 11)))
+        if na[c] <= 0.20 and not c.startswith("fourier_") and not c.endswith(tuple(f"_{i}" for i in range(2, 11)))
     ]
     # subsample 350
     parts = []
@@ -178,11 +183,8 @@ def export_tubule():
             g = g.sample(n=350, random_state=42)
         parts.append(g)
     df = pd.concat(parts, ignore_index=True)
-    clin = pd.concat(
-        [pd.read_csv(CLIN / "V4_patient_train_56.csv"), pd.read_csv(CLIN / "V4_patient_valid_30.csv")],
-        ignore_index=True,
-    ).rename(columns={"Slide": "sample"})
-    eg = df.merge(clin[["sample", "eGFR_CKDEPI"]], on="sample", how="left")["eGFR_CKDEPI"].astype(float).values
+    clin = load_clin()
+    eg = df.merge(clin, on="sample", how="left")["eGFR_CKDEPI"].astype(float).values
     X = df[feat_cols].replace([np.inf, -np.inf], np.nan).to_numpy(float)
     bundle, _ = fit_axis(X, eg, n_comp=30)
     bundle["feat_cols"] = feat_cols
@@ -199,11 +201,8 @@ def export_glom():
     print("=== Glom morph frozen (Python portable axis) ===")
     g = pd.read_csv(CSV / "078_20260517_183945-P2v4f_instance_glom_filtered100um_V1.csv")
     cols = [c for c in GLOM_FEATS if c in g.columns]
-    clin = pd.concat(
-        [pd.read_csv(CLIN / "V4_patient_train_56.csv"), pd.read_csv(CLIN / "V4_patient_valid_30.csv")],
-        ignore_index=True,
-    ).rename(columns={"Slide": "sample"})
-    eg = g.merge(clin[["sample", "eGFR_CKDEPI"]], on="sample", how="left")["eGFR_CKDEPI"].astype(float).values
+    clin = load_clin()
+    eg = g.merge(clin, on="sample", how="left")["eGFR_CKDEPI"].astype(float).values
     X = g[cols].replace([np.inf, -np.inf], np.nan).to_numpy(float)
     bundle, _ = fit_axis(X, eg, n_comp=min(15, len(cols)))
     bundle["feat_cols"] = cols

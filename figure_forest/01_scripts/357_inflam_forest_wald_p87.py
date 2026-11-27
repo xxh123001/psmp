@@ -3,6 +3,12 @@
 """
 357 — Forest with p87 + raw IFTA(model); P column vs baseline IFTA(model).
 
+Superseded development variant: the submitted Figure 8 reproduction
+(all 15 pre-specified models + locked external validation) is
+369_inflam_forest_357style_p87_p95.py. This file keeps the earlier
+7-model display layout; percentile choices updated to the locked
+manuscript values (1y I-p87, 2y I-p95).
+
 AUC = LOO-CV (discrimination display).
 P vs IFTA(model):
   - IFTA(model) alone: — (reference)
@@ -147,8 +153,8 @@ def build_patient():
         inflam_rows.append(
             {
                 "sample": sid,
-                "inflam_psi_p88": float(np.percentile(psi, 88)),
-                "inflam_psi_p91": float(np.percentile(psi, 91)),
+                "inflam_psi_p87": float(np.percentile(psi, 87)),
+                "inflam_psi_p95": float(np.percentile(psi, 95)),
             }
         )
     ifta = cal[["sample", "Banff_raw"]].rename(columns={"Banff_raw": IFTA_COL})
@@ -164,8 +170,8 @@ def build_patient():
         IFTA_COL,
         "tub_p87",
         "tub_p80",
-        "inflam_psi_p88",
-        "inflam_psi_p91",
+        "inflam_psi_p87",
+        "inflam_psi_p95",
     ]:
         pat[c] = pd.to_numeric(pat[c], errors="coerce")
     return pat
@@ -316,24 +322,24 @@ def main():
     pat = build_patient()
     need = ["tub_p87", "tub_p80", IFTA_COL, "DCr", "2Y_DCr"]
     dat45 = pat.dropna(subset=need).copy()
-    dat_inf = pat.dropna(subset=need + ["inflam_psi_p91", "inflam_psi_p88"]).copy()
+    dat_inf = pat.dropna(subset=need + ["inflam_psi_p87", "inflam_psi_p95"]).copy()
     print(f"n45={len(dat45)} n42={len(dat_inf)}", flush=True)
 
     models_1y = [
-        (f"PT p87 + Inflam ψ p91 + {IFTA_LAB}", ["tub_p87", "inflam_psi_p91", IFTA_COL], True, "lrt"),
-        (f"Inflam ψ p91 + {IFTA_LAB}", ["inflam_psi_p91", IFTA_COL], True, "wald_add"),
+        (f"PT p87 + Inflam ψ p87 + {IFTA_LAB}", ["tub_p87", "inflam_psi_p87", IFTA_COL], True, "lrt"),
+        (f"Inflam ψ p87 + {IFTA_LAB}", ["inflam_psi_p87", IFTA_COL], True, "wald_add"),
         (f"PT p87 + {IFTA_LAB}", ["tub_p87", IFTA_COL], True, "wald_add"),
-        ("PT p87 + Inflam ψ p91", ["tub_p87", "inflam_psi_p91"], True, "lrt_null"),
-        ("Inflam ψ p91", ["inflam_psi_p91"], False, "uni"),
+        ("PT p87 + Inflam ψ p87", ["tub_p87", "inflam_psi_p87"], True, "lrt_null"),
+        ("Inflam ψ p87", ["inflam_psi_p87"], False, "uni"),
         ("PT p87", ["tub_p87"], False, "uni"),
         (IFTA_LAB, [IFTA_COL], False, "uni"),
     ]
     models_2y = [
-        (f"PT p80 + Inflam ψ p88 + {IFTA_LAB}", ["tub_p80", "inflam_psi_p88", IFTA_COL], True, "lrt"),
-        (f"Inflam ψ p88 + {IFTA_LAB}", ["inflam_psi_p88", IFTA_COL], True, "wald_add"),
+        (f"PT p80 + Inflam ψ p95 + {IFTA_LAB}", ["tub_p80", "inflam_psi_p95", IFTA_COL], True, "lrt"),
+        (f"Inflam ψ p95 + {IFTA_LAB}", ["inflam_psi_p95", IFTA_COL], True, "wald_add"),
         (f"PT p80 + {IFTA_LAB}", ["tub_p80", IFTA_COL], True, "wald_add"),
-        ("PT p80 + Inflam ψ p88", ["tub_p80", "inflam_psi_p88"], True, "lrt_null"),
-        ("Inflam ψ p88", ["inflam_psi_p88"], False, "uni"),
+        ("PT p80 + Inflam ψ p95", ["tub_p80", "inflam_psi_p95"], True, "lrt_null"),
+        ("Inflam ψ p95", ["inflam_psi_p95"], False, "uni"),
         ("PT p80", ["tub_p80"], False, "uni"),
         (IFTA_LAB, [IFTA_COL], False, "uni"),
     ]

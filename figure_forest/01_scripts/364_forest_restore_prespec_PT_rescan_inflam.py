@@ -13,6 +13,11 @@ Fix:
   - Inflam ψ (final Ge*): re-scan p70–95 by LOO AUC of key routes
       * 1y/2y: maximize Inflam+IFTA LOO AUC (and report uni for reference)
   - Rerun Wald forest comparable to 357 layout
+
+Superseded development variant: the submitted Figure 8 reproduction is
+369_inflam_forest_357style_p87_p95.py. The percentile scan here now
+implements the locked selection rule of Methods 6 — the midpoint of the
+contiguous candidates whose LOO AUCs are within 0.05 of the maximum.
 """
 from __future__ import annotations
 
@@ -180,13 +185,24 @@ def scan_inflam(pat, ycol, pt_col):
         rows.append(
             dict(p=p, auc_uni=uni, auc_inf_ifta=auc_add, auc_triple=auc_tri, n=len(d0))
         )
-    df = pd.DataFrame(rows)
-    # primary: Inflam+IFTA; tie-break by triple then higher p
-    df = df.sort_values(
-        ["auc_inf_ifta", "auc_triple", "p"], ascending=[False, False, False]
-    )
-    pick = df.iloc[0]
-    return df.sort_values("p"), int(pick["p"]), pick
+    df = pd.DataFrame(rows).sort_values("p").reset_index(drop=True)
+    # Methods 6: locked percentile = midpoint of the contiguous candidates
+    # whose LOO AUCs are within 0.05 of the maximum
+    best = df["auc_inf_ifta"].max()
+    p_at_max = int(df.loc[df["auc_inf_ifta"].idxmax(), "p"])
+    elig = sorted(df.loc[df["auc_inf_ifta"] >= best - 0.05, "p"].tolist())
+    runs, cur = [], [elig[0]]
+    for p in elig[1:]:
+        if p == cur[-1] + 1:
+            cur.append(p)
+        else:
+            runs.append(cur)
+            cur = [p]
+    runs.append(cur)
+    run = next(r for r in runs if p_at_max in r)
+    pick_p = int(round((run[0] + run[-1]) / 2))
+    pick = df.loc[df["p"] == pick_p].iloc[0]
+    return df, pick_p, pick
 
 
 def eval_models(dat45, dat_inf, ycol, models, seed0=0):
