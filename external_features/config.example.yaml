@@ -1,0 +1,10 @@
+# 外验输入根目录（服务器上改成你的路径）
+alg_root: /data/external/alg_results          # 内含 <sample>_alg_result/hr0_alg.json/
+tubule_instance_csv: /data/external/instance_tubule.csv
+glom_instance_csv: /data/external/instance_glom.csv
+artery_instance_csv: /data/external/instance_artery.csv
+tubule_features_csv: /data/external/tubule_features_all.csv   # 与发现集同 schema
+outcome_csv: /data/external/outcomes_1y2y.csv                 # 可选: sample,1y_DCr,...
+
+out_dir: /data/external/features_out
+frozen_dir: ./frozen
