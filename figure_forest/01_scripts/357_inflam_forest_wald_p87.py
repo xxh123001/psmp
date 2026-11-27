@@ -15,6 +15,7 @@ P vs IFTA(model):
 from __future__ import annotations
 
 from datetime import datetime
+import math
 import os
 from pathlib import Path
 
@@ -68,26 +69,24 @@ def loo_oof(X, y):
     y = np.asarray(y, int)
     oof = np.zeros(len(y), float)
     for tr, te in LeaveOneOut().split(X):
+        # Methods 7: StandardScaler -> unpenalised logistic regression
         pipe = Pipeline(
-            [("s", StandardScaler()), ("m", LogisticRegression(max_iter=3000, C=1.0))]
+            [("s", StandardScaler()), ("m", LogisticRegression(penalty=None, max_iter=2000))]
         )
         pipe.fit(X[tr], y[tr])
         oof[te] = pipe.predict_proba(X[te])[:, 1]
     return oof
 
 
-def auc_ci(y, oof, n_boot=800, seed=0):
+def auc_ci(y, oof):
+    # Methods 7.2: Hanley-McNeil 95% CI, limits restricted to [0, 1]
     auc = float(roc_auc_score(y, oof))
-    rng = np.random.default_rng(seed)
-    idx = np.arange(len(y))
-    bs = []
-    for _ in range(n_boot):
-        b = rng.choice(idx, len(idx), replace=True)
-        if len(np.unique(y[b])) < 2:
-            continue
-        bs.append(roc_auc_score(y[b], oof[b]))
-    lo, hi = np.percentile(bs, [2.5, 97.5]) if bs else (np.nan, np.nan)
-    return auc, float(lo), float(hi)
+    n1, n0 = int(np.sum(y == 1)), int(np.sum(y == 0))
+    q1 = auc / (2.0 - auc)
+    q2 = 2.0 * auc * auc / (1.0 + auc)
+    var = (auc * (1.0 - auc) + (n1 - 1) * (q1 - auc * auc) + (n0 - 1) * (q2 - auc * auc)) / (n1 * n0)
+    se = math.sqrt(max(var, 0.0))
+    return auc, max(0.0, auc - 1.96 * se), min(1.0, auc + 1.96 * se)
 
 
 def fit_logit(X, y):
@@ -187,7 +186,7 @@ def eval_models(dat45, dat_inf, ycol, models, seed0=0):
             oof = np.asarray(X, float).ravel()
         else:
             oof = loo_oof(X, y)
-        auc, lo, hi = auc_ci(y, oof, seed=seed0 + i)
+        auc, lo, hi = auc_ci(y, oof)
 
         if focus == "uni" and list(cols) == [IFTA_COL]:
             p = np.nan
